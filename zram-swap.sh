@@ -78,6 +78,13 @@ _main() {
 
 # initialize swap
 _init() {
+  # disable zswap before enabling zram "to avoid it acting as a swap cache in front of zram"
+  # because "zswap intercepts and compresses memory pages being swapped out before they can reach zram"
+  # per <https://wiki.archlinux.org/title/Improving_performance#zram_or_zswap>
+  if [ -f /sys/module/zswap/parameters/enabled ]; then
+    echo 0 > /sys/module/zswap/parameters/enabled
+  fi
+
   if [ -n "$_zram_fixedsize" ]; then
     if ! _regex_match "$_zram_fixedsize" '^[[:digit:]]+(\.[[:digit:]]+)?(G|M)$'; then
       err "init: Invalid size '$_zram_fixedsize'. Format sizes like: 100M 250M 1.5G 2G etc."
@@ -116,6 +123,7 @@ _init() {
 
 # end swapping and cleanup
 _end() {
+  # TODO: consider re-enabling zswap? How do you query whether it would have been enabled prior to us disabling it at runtime in _init()?
   ret="0"
   for dev in $(awk '/zram/ {print $1}' /proc/swaps); do
     swapoff "$dev"
